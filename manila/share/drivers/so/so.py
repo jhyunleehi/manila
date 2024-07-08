@@ -34,11 +34,10 @@ VERSION = "0.1.0"
 LOG = log.getLogger(__name__)
 
 
-class SOConnection(base.StorageConnection):
+class SOConnection():
     """Implements Isilon specific functionality for EMC Manila driver."""
 
-    def __init__(self, *args, **kwargs):
-        super(SOConnection, self).__init__(*args, **kwargs)
+    def __init__(self, *args, **kwargs):        
         self._server = None
         self._port = None
         self._username = None

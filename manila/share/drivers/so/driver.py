@@ -21,8 +21,10 @@ to specify, which backend plugins to use.
 """
 
 from oslo_config import cfg
-from oslo_log import log
-
+#from oslo_log import log
+import logging
+from  manila.share.drivers.so import so
+import  manila.share.drivers.so_api 
 from manila.share import driver
 
 EMC_NAS_OPTS = [
@@ -56,7 +58,14 @@ EMC_NAS_OPTS = [
                     'CAs, which will be used to validate the backend.')
 ]
 
-LOG = log.getLogger(__name__)
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+
+#LOG = log.getLogger(__name__)
+LOG = logging.getLogger(__name__)
 
 CONF = cfg.CONF
 CONF.register_opts(EMC_NAS_OPTS)
@@ -69,139 +78,15 @@ class SOShareDriver(driver.ShareDriver):
         self.configuration = kwargs.get('configuration', None)
         if self.configuration:
             self.configuration.append_config_values(EMC_NAS_OPTS)
-            self.backend_name = self.configuration.safe_get(
-                'emc_share_backend')
+            self.backend_name = self.configuration.safe_get('emc_share_backend')
         else:
             self.backend_name = CONF.emc_share_backend
         self.backend_name = self.backend_name or 'EMC_NAS_Storage'        
-        LOG.info("BACKEND IS: %s", self.backend_name)
-        LOG.warning('Dell EMC VNX share driver has been deprecated and is '
-                        'expected to be removed in a future release.')
-        self.plugin = self.plugin_manager.load_plugin(
-            self.backend_name,
-            configuration=self.configuration)
-        LOG.info(f"PLUGIN HAS: {self.so.__dict__}")
+        LOG.debug("BACKEND IS: %s", self.backend_name)        
+        self.so = so.SOConnection( self.backend_name, configuration=self.configuration)
+        
         super(SOShareDriver, self).__init__(
             self.so.driver_handles_share_servers, *args, **kwargs)
-
-        self.dhss_mandatory_security_service_association = (
-            self.so.dhss_mandatory_security_service_association)
-
-        if hasattr(self.plugin, 'ipv6_implemented'):
-            self.ipv6_implemented = self.so.ipv6_implemented
-
-        if hasattr(self.plugin, 'revert_to_snap_support'):
-            self.revert_to_snap_support = self.so.revert_to_snap_support
-        else:
-            self.revert_to_snap_support = False
-
-        if hasattr(self.plugin, 'shrink_share_support'):
-            self.shrink_share_support = self.so.shrink_share_support
-        else:
-            self.shrink_share_support = False
-
-        if hasattr(self.plugin, 'manage_existing_support'):
-            self.manage_existing_support = self.so.manage_existing_support
-        else:
-            self.manage_existing_support = False
-
-        if hasattr(self.plugin, 'manage_existing_with_server_support'):
-            self.manage_existing_with_server_support = (
-                self.so.manage_existing_with_server_support)
-        else:
-            self.manage_existing_with_server_support = False
-
-        if hasattr(self.plugin, 'manage_existing_snapshot_support'):
-            self.manage_existing_snapshot_support = (
-                self.so.manage_existing_snapshot_support)
-        else:
-            self.manage_existing_snapshot_support = False
-
-        if hasattr(self.plugin, 'manage_snapshot_with_server_support'):
-            self.manage_snapshot_with_server_support = (
-                self.so.manage_snapshot_with_server_support)
-        else:
-            self.manage_snapshot_with_server_support = False
-
-        if hasattr(self.plugin, 'manage_server_support'):
-            self.manage_server_support = self.so.manage_server_support
-        else:
-            self.manage_server_support = False
-
-        if hasattr(self.plugin, 'get_share_server_network_info_support'):
-            self.get_share_server_network_info_support = (
-                self.so.get_share_server_network_info_support)
-        else:
-            self.get_share_server_network_info_support = False
-
-    def manage_existing(self, share, driver_options):
-        """manage an existing share"""
-        if self.manage_existing_support:
-            return self.so.manage_existing(share, driver_options)
-        else:
-            return NotImplementedError()
-
-    def manage_existing_with_server(self, share, driver_options,
-                                    share_server=None):
-        """manage an existing share"""
-        if self.manage_existing_with_server_support:
-            return self.so.manage_existing_with_server(
-                share, driver_options, share_server)
-        else:
-            return NotImplementedError()
-
-    def manage_existing_snapshot(self, snapshot, driver_options):
-        """manage an existing share snapshot"""
-        if self.manage_existing_snapshot_support:
-            return self.so.manage_existing_snapshot(snapshot,
-                                                        driver_options)
-        else:
-            return NotImplementedError()
-
-    def manage_existing_snapshot_with_server(self, snapshot, driver_options,
-                                             share_server=None):
-        """manage an existing share snapshot"""
-        if self.manage_snapshot_with_server_support:
-            return self.so.manage_existing_snapshot_with_server(
-                snapshot, driver_options, share_server=None)
-        else:
-            return NotImplementedError()
-
-    def manage_server(self, context, share_server, identifier,
-                      driver_options):
-        if self.manage_server_support:
-            return self.so.manage_server(context, share_server,
-                                             identifier, driver_options)
-        else:
-            return NotImplementedError()
-
-    def get_share_server_network_info(
-            self, context, share_server, identifier, driver_options):
-        if self.get_share_server_network_info_support:
-            return self.so.get_share_server_network_info(
-                context, share_server, identifier, driver_options)
-        else:
-            return NotImplementedError()
-
-    def unmanage_server(self, server_details, security_services=None):
-        LOG.info('Dell EMC driver will unmanage share server: %s out of '
-                 'OpenStack.', server_details.get('server_id'))
-
-    def unmanage(self, share):
-        LOG.info('Dell EMC driver will unmanage share: %s out of '
-                 'OpenStack.', share.get('id'))
-
-    def unmanage_with_server(self, share, share_server=None):
-        LOG.info('Dell EMC driver will unmanage share: %s out of '
-                 'OpenStack.', share.get('id'))
-
-    def unmanage_snapshot(self, snapshot):
-        LOG.info('Dell EMC driver will unmanage snapshot: %s out of '
-                 'OpenStack.', snapshot.get('id'))
-
-    def unmanage_snapshot_with_server(self, snapshot, share_server=None):
-        LOG.info('Dell EMC driver will unmanage snapshot: %s out of '
-                 'OpenStack.', snapshot.get('id'))
 
     def create_share(self, context, share, share_server=None):
         """Is called to create share."""
@@ -314,6 +199,6 @@ class SOShareDriver(driver.ShareDriver):
             raise NotImplementedError()
 
     def get_default_filter_function(self):
-        if hasattr(self.plugin, 'get_default_filter_function'):
+        if hasattr(self.so, 'get_default_filter_function'):
             return self.so.get_default_filter_function()
         return None

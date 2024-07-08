@@ -17,7 +17,7 @@
 import abc
 
 
-class StorageConnection(metaclass=abc.ABCMeta):
+class Connection(metaclass=abc.ABCMeta):
     """Subclasses should implement storage backend specific functionality."""
 
     def __init__(self, *args, **kwargs):
